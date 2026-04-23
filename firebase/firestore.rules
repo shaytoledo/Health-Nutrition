@@ -1,0 +1,47 @@
+// firestore.rules — Firestore security rules
+//
+// Each user can only read and write their own documents.
+// All other access (cross-user, unauthenticated) is denied by default.
+//
+// Deploy with: firebase deploy --only firestore:rules
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: only the authenticated user matching the document UID may access it
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    // User profile
+    match /users/{uid}/profile/{doc} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // Daily goals
+    match /users/{uid}/goals/{date} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // Daily log aggregate
+    match /users/{uid}/dailyLogs/{date} {
+      allow read, write: if isOwner(uid);
+
+      // Meals sub-collection
+      match /meals/{mealId} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    // Health logs
+    match /users/{uid}/healthLogs/{date} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // Deny all other paths
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

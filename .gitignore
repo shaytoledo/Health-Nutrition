@@ -1,0 +1,51 @@
+# ── Secrets / private config ─────────────────────────────────────────────────
+frontend/src/config/appConfig.js
+
+# ── Node / JS ────────────────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp
+.pnp.js
+
+# ── Expo build output ────────────────────────────────────────────────────────
+.expo/
+.expo-shared/
+dist/
+web-build/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# ── Vercel ───────────────────────────────────────────────────────────────────
+.vercel/
+
+# ── Env files ────────────────────────────────────────────────────────────────
+.env
+.env.local
+.env.development
+.env.production
+*.env
+
+# ── IDE / editors ────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── OS ───────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ── Claude / agents ──────────────────────────────────────────────────────────
+.claude/
+
+# ── Build artifacts ──────────────────────────────────────────────────────────
+build/
+*.log

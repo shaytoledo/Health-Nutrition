@@ -1,5 +1,5 @@
 /**
- * components/CalorieRing.js — טבעת קלוריות SVG עגולה
+ * components/CalorieRing.js — circular SVG calorie ring
  */
 
 import React from 'react';

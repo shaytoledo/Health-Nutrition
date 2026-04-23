@@ -1,244 +1,244 @@
-# 📱 מדריך מלא לאפליקציית HealthTracker
+# 📱 Complete Guide to the HealthTracker App
 
-> אפליקציית ניהול תזונה וכושר מבוססת AI — מדריך למשתמש ולמפתח
-
----
-
-## תוכן עניינים
-
-1. [מה האפליקציה עושה](#1-מה-האפליקציה-עושה)
-2. [הדרישות להתקנה](#2-הדרישות-להתקנה)
-3. [הפעלת האפליקציה](#3-הפעלת-האפליקציה)
-4. [מסכי האפליקציה](#4-מסכי-האפליקציה)
-5. [ארכיטקטורת המערכת](#5-ארכיטקטורת-המערכת)
-6. [מבנה מסד הנתונים](#6-מבנה-מסד-הנתונים)
-7. [ה-API של השרת](#7-ה-api-של-השרת)
-8. [זרימת הנתונים](#8-זרימת-הנתונים)
-9. [מפתחות API נדרשים](#9-מפתחות-api-נדרשים)
-10. [שאלות נפוצות](#10-שאלות-נפוצות)
+> An AI-powered nutrition and fitness management app — a guide for users and developers
 
 ---
 
-## 1. מה האפליקציה עושה
+## Table of Contents
 
-HealthTracker היא אפליקציה לניהול תזונה וכושר שמשלבת בינה מלאכותית לזיהוי מזון. היא מאפשרת:
-
-- **📷 זיהוי מזון אוטומטי** — צלם את הצלחת שלך, ה-AI יזהה את המזון ויחשב קלוריות וערכים תזונתיים
-- **🎯 הגדרת מטרות** — הזן פרטים פיזיים (גובה, משקל, גיל, מין) ומקבל המלצה אישית לצריכה יומית
-- **⌚ סנכרון חומרה** — מתחבר לאפל HealthKit (iOS) ו-Google Fit (אנדרואיד) לייבוא נתוני אימונים
-- **📊 דשבורד חי** — עקוב בזמן אמת כמה קלוריות, חלבון, פחמימות ושומן צרכת מתוך היעד
+1. [What the app does](#1-what-the-app-does)
+2. [Installation requirements](#2-installation-requirements)
+3. [Running the app](#3-running-the-app)
+4. [App screens](#4-app-screens)
+5. [System architecture](#5-system-architecture)
+6. [Database structure](#6-database-structure)
+7. [Server API](#7-server-api)
+8. [Data flow](#8-data-flow)
+9. [Required API keys](#9-required-api-keys)
+10. [FAQ](#10-faq)
 
 ---
 
-## 2. הדרישות להתקנה
+## 1. What the app does
 
-### דרישות תוכנה
+HealthTracker is a nutrition and fitness management app that uses artificial intelligence for food recognition. It lets you:
 
-| רכיב | גרסה מינימלית |
+- **📷 Automatic food recognition** — snap a photo of your plate and the AI will identify the food and calculate calories and nutritional values
+- **🎯 Goal setting** — enter your physical details (height, weight, age, gender) and get a personalized daily intake recommendation
+- **⌚ Hardware sync** — connects to Apple HealthKit (iOS) and Google Fit (Android) to import workout data
+- **📊 Live dashboard** — track in real time how many calories, protein, carbs, and fat you've consumed toward your target
+
+---
+
+## 2. Installation requirements
+
+### Software requirements
+
+| Component | Minimum version |
 |------|---------------|
 | Node.js | 18+ |
 | npm | 9+ |
 | Expo CLI | 50+ |
-| iOS (לבדיקה) | 15+ |
-| Android (לבדיקה) | 10+ |
+| iOS (for testing) | 15+ |
+| Android (for testing) | 10+ |
 
-### מפתחות חיצוניים נדרשים
+### Required external keys
 
-1. **Google Gemini API Key** — לזיהוי מזון מתמונות
-2. **Firebase Project** — לאחסון נתונים ואימות משתמשים
-3. **Firebase Storage** — לשמירת תמונות הארוחות
+1. **Google Gemini API Key** — for food recognition from images
+2. **Firebase Project** — for data storage and user authentication
+3. **Firebase Storage** — for storing meal images
 
 ---
 
-## 3. הפעלת האפליקציה
+## 3. Running the app
 
-### שלב א׳ — הפעלת השרת (Backend)
+### Step 1 — Start the server (Backend)
 
 ```bash
-# 1. עבור לתיקיית השרת
+# 1. Go to the server directory
 cd backend
 
-# 2. התקן חבילות
+# 2. Install packages
 npm install
 
-# 3. צור קובץ .env (העתק מהדוגמה)
+# 3. Create a .env file (copy from the example)
 copy .env.example .env
 
-# 4. ערוך את .env והכנס את המפתחות שלך
+# 4. Edit .env and insert your keys
 # GEMINI_API_KEY=...
 # FIREBASE_PROJECT_ID=...
 # FIREBASE_PRIVATE_KEY=...
 # FIREBASE_CLIENT_EMAIL=...
 
-# 5. הפעל את השרת
+# 5. Start the server
 node server.js
-# השרת רץ על: http://localhost:3000
+# The server runs on: http://localhost:3000
 ```
 
-### שלב ב׳ — הפעלת האפליקציה (Frontend)
+### Step 2 — Start the app (Frontend)
 
 ```bash
-# 1. עבור לתיקיית הפרונטאנד
+# 1. Go to the frontend directory
 cd frontend
 
-# 2. התקן חבילות
+# 2. Install packages
 npm install
 
-# 3. הפעל
+# 3. Run it
 npx expo start
 
-# לווב (דפדפן):
+# For web (browser):
 npx expo start --web
 
-# לאנדרואיד:
+# For Android:
 npx expo start --android
 
-# לאייפון:
+# For iPhone:
 npx expo start --ios
 ```
 
-### הגדרת כתובת השרת
+### Configuring the server address
 
-בקובץ `frontend/src/services/apiService.js`, שנה את `BASE_URL`:
+In `frontend/src/services/apiService.js`, change `BASE_URL`:
 
 ```javascript
-// לסימולטור אנדרואיד:
+// For the Android simulator:
 const BASE_URL = 'http://10.0.2.2:3000/api';
 
-// לסימולטור iOS:
+// For the iOS simulator:
 const BASE_URL = 'http://localhost:3000/api';
 
-// לנייד פיזי (החלף ב-IP של המחשב שלך):
+// For a physical device (replace with your computer's IP):
 const BASE_URL = 'http://192.168.1.XXX:3000/api';
 ```
 
 ---
 
-## 4. מסכי האפליקציה
+## 4. App screens
 
-### 🏠 דשבורד (טאב ראשון)
+### 🏠 Dashboard (first tab)
 
-המסך המרכזי שמציג את כל המידע הרלוונטי להיום:
+The main screen, showing all the relevant information for today:
 
-**מה תראה:**
-- **טבעת קלוריות גדולה** — מציגה כמה קלוריות אכלת מתוך המטרה היומית. הצבע משתנה:
-  - 🟢 ירוק (0–70%) — מצוין, יש עוד מקום
-  - 🟡 צהוב (70–90%) — קרוב למטרה
-  - 🔴 אדום (90%+) — הגעת או חרגת מהמטרה
+**What you'll see:**
+- **Large calorie ring** — shows how many calories you've eaten out of the daily target. The color changes:
+  - 🟢 Green (0–70%) — great, there's still room
+  - 🟡 Yellow (70–90%) — close to the target
+  - 🔴 Red (90%+) — you've reached or exceeded the target
 
-- **שלושה progress bars** — מראים את ההתקדמות בחלבון / פחמימות / שומן
+- **Three progress bars** — show progress for protein / carbs / fat
 
-- **כפתור "סנכרן נתוני בריאות"** — מושך אימונים וצעדים מה-HealthKit/Google Fit ומחשב קלוריות שרפת
+- **"Sync health data" button** — pulls workouts and steps from HealthKit/Google Fit and calculates calories burned
 
-- **רשימת ארוחות היום** — כל ארוחה שנרשמה מוצגת עם תמונה ממוזערת, שם, קלוריות, ומאקרו. ניתן למחוק ארוחה על-ידי לחיצה על ✕
+- **Today's meals list** — every logged meal is displayed with a thumbnail, name, calories, and macros. You can delete a meal by tapping ✕
 
-**פעולות זמינות:**
-- גרירה למטה (Pull to Refresh) — מרענן את הנתונים מהשרת
-- לחיצה על ✕ ליד ארוחה — שואל אישור לפני מחיקה
-
----
-
-### 📷 סריקה (טאב שני)
-
-מסך הוספת ארוחה חדשה. יש שלוש דרכים להוסיף:
-
-#### אפשרות 1: צלם עכשיו (מומלץ)
-1. לחץ על **"📷 צלם עכשיו"**
-2. האפליקציה תבקש הרשאת מצלמה (רק בפעם הראשונה)
-3. מצלמת המכשיר תיפתח עם מסגרת ירוקה לכיוון
-4. לחץ על כפתור הצילום הלבן הגדול
-5. ה-AI ינתח את התמונה (5–15 שניות)
-6. תוצג הערכה תזונתית: שם המזון, קלוריות, חלבון, פחמימות, שומן
-7. לחץ **"✓ הוסף ליומן"** לאישור — תופיע הודעת הצלחה
-
-#### אפשרות 2: בחר מהגלריה
-1. לחץ על **"🖼 בחר מהגלריה"**
-2. בחר תמונה קיימת מהמכשיר
-3. המשך כמו אפשרות 1 משלב 5
-
-#### אפשרות 3: הזנה ידנית
-1. לחץ על **"✏ הזנה ידנית"**
-2. מלא את הטופס:
-   - **שם המזון** (חובה) — לדוגמה: "חזה עוף בגריל"
-   - **קלוריות** — בקילוקלוריות (קק״ל)
-   - **חלבון** — בגרמים
-   - **פחמימות** — בגרמים
-   - **שומן** — בגרמים
-3. לחץ **"הוסף ליומן"** — תופיע הודעת הצלחה
-
-**טיפים לצילום מוצלח:**
-- צלם מלמעלה, לא בזווית
-- וודא תאורה טובה
-- כל הצלחת צריכה להיות בפריים
-- נסה להימנע מרקע עמוס
+**Available actions:**
+- Pull down (Pull to Refresh) — refreshes the data from the server
+- Tap ✕ next to a meal — asks for confirmation before deleting
 
 ---
 
-### 🎯 מטרות (טאב שלישי)
+### 📷 Scan (second tab)
 
-מסך הגדרת יעדי הקלוריות והמאקרו היומיים. יש שתי שיטות:
+Screen for adding a new meal. There are three ways to add one:
 
-#### שיטה 1: חישוב אוטומטי (מומלץ)
-ענה על 4 שאלות ותקבל מטרה מותאמת אישית:
+#### Option 1: Take a photo (recommended)
+1. Tap **"📷 Take photo now"**
+2. The app will request camera permission (first time only)
+3. The device camera opens with a green aiming frame
+4. Press the large white shutter button
+5. The AI will analyze the image (5–15 seconds)
+6. A nutritional estimate will be shown: food name, calories, protein, carbs, fat
+7. Tap **"✓ Add to log"** to confirm — a success message appears
 
-| שאלה | הסבר |
+#### Option 2: Pick from the gallery
+1. Tap **"🖼 Pick from gallery"**
+2. Choose an existing image from the device
+3. Continue as in option 1 from step 5
+
+#### Option 3: Manual entry
+1. Tap **"✏ Manual entry"**
+2. Fill out the form:
+   - **Food name** (required) — for example: "Grilled chicken breast"
+   - **Calories** — in kilocalories (kcal)
+   - **Protein** — in grams
+   - **Carbs** — in grams
+   - **Fat** — in grams
+3. Tap **"Add to log"** — a success message appears
+
+**Tips for a successful photo:**
+- Shoot from directly above, not at an angle
+- Make sure the lighting is good
+- The whole plate should be in frame
+- Try to avoid a busy background
+
+---
+
+### 🎯 Goals (third tab)
+
+Screen for setting daily calorie and macro targets. There are two methods:
+
+#### Method 1: Automatic calculation (recommended)
+Answer 4 questions and get a personalized target:
+
+| Question | Explanation |
 |------|-------|
-| **משקל** | משקלך הנוכחי בק״ג |
-| **גובה** | גובהך בס״מ |
-| **גיל** | גילך בשנים |
-| **מין** | זכר / נקבה / אחר |
-| **רמת פעילות** | בחר מתוך 5 אפשרויות (ראה טבלה מטה) |
+| **Weight** | Your current weight in kg |
+| **Height** | Your height in cm |
+| **Age** | Your age in years |
+| **Gender** | Male / female / other |
+| **Activity level** | Choose from 5 options (see table below) |
 
-**רמות פעילות:**
+**Activity levels:**
 
-| רמה | הסבר | מכפיל |
+| Level | Explanation | Multiplier |
 |-----|-------|--------|
-| יושבני | עבודה במשרד, ללא פעילות גופנית | ×1.2 |
-| קל | 1–3 אימונים קלים בשבוע | ×1.375 |
-| בינוני | 3–5 אימונים בשבוע | ×1.55 |
-| פעיל | 6–7 אימונים עצימים בשבוע | ×1.725 |
-| מאוד פעיל | עבודה פיזית + אימון כפול יומי | ×1.9 |
+| Sedentary | Office work, no physical activity | ×1.2 |
+| Light | 1–3 light workouts per week | ×1.375 |
+| Moderate | 3–5 workouts per week | ×1.55 |
+| Active | 6–7 intense workouts per week | ×1.725 |
+| Very active | Physical labor + twice-daily training | ×1.9 |
 
-לאחר לחיצה על **"⚡ חשב את המטרה שלי"** יוצג:
-- BMR (חילוף חומרים בסיסי) — קלוריות שגופך שורף במנוחה
-- TDEE (הוצאה קלורית יומית כוללת) — BMR × מכפיל פעילות
-- מטרת הקלוריות היומית
-- חלוקת מאקרו: 25% חלבון / 45% פחמימות / 30% שומן
+After tapping **"⚡ Calculate my goal"** the following is shown:
+- BMR (basal metabolic rate) — calories your body burns at rest
+- TDEE (total daily energy expenditure) — BMR × activity multiplier
+- Daily calorie target
+- Macro split: 25% protein / 45% carbs / 30% fat
 
-**הנוסחה בשימוש:**
-- גברים: `88.362 + (13.397 × משקל) + (4.799 × גובה) − (5.677 × גיל)`
-- נשים: `447.593 + (9.247 × משקל) + (3.098 × גובה) − (4.330 × גיל)`
+**Formula used:**
+- Men: `88.362 + (13.397 × weight) + (4.799 × height) − (5.677 × age)`
+- Women: `447.593 + (9.247 × weight) + (3.098 × height) − (4.330 × age)`
 
-#### שיטה 2: הזנה ידנית
-לחץ על טאב **"✏ הזנה ידנית"** והכנס ישירות:
-- מטרת קלוריות (חובה, מינימום 500 קק״ל)
-- מטרת חלבון בגרמים
-- מטרת פחמימות בגרמים
-- מטרת שומן בגרמים
-
----
-
-### 👤 פרופיל (טאב רביעי)
-
-שמירת פרטים אישיים שישמשו לחישובי תזונה עתידיים.
-
-**שדות הטופס:**
-- שם מלא
-- גיל
-- משקל (ק״ג)
-- גובה (ס״מ)
-- מין
-- רמת פעילות
-
-לחיצה על **"שמור פרופיל"** שומרת את הפרטים ומציגה הודעת אישור.
+#### Method 2: Manual entry
+Tap the **"✏ Manual entry"** tab and enter directly:
+- Calorie target (required, minimum 500 kcal)
+- Protein target in grams
+- Carb target in grams
+- Fat target in grams
 
 ---
 
-## 5. ארכיטקטורת המערכת
+### 👤 Profile (fourth tab)
+
+Save personal details that will be used for future nutrition calculations.
+
+**Form fields:**
+- Full name
+- Age
+- Weight (kg)
+- Height (cm)
+- Gender
+- Activity level
+
+Tapping **"Save profile"** saves the details and shows a confirmation message.
+
+---
+
+## 5. System architecture
 
 ```
 ┌─────────────────────────────────────┐
-│          מכשיר הנייד                │
+│          Mobile device              │
 │  ┌─────────────────────────────┐   │
 │  │   React Native (Expo)       │   │
 │  │   ┌────────────────────┐   │   │
@@ -255,10 +255,10 @@ const BASE_URL = 'http://192.168.1.XXX:3000/api';
                 │ REST API
                 ▼
 ┌─────────────────────────────────────┐
-│         שרת Node.js/Express         │
+│         Node.js/Express server      │
 │  ┌──────────┐  ┌──────────────────┐ │
 │  │ /food    │  │ Gemini Vision AI │ │
-│  │ /goals   │  │ (זיהוי מזון)    │ │
+│  │ /goals   │  │ (food recognition)│ │
 │  │ /health  │  └──────────────────┘ │
 │  └────┬─────┘                       │
 └───────│─────────────────────────────┘
@@ -274,25 +274,25 @@ const BASE_URL = 'http://192.168.1.XXX:3000/api';
 └─────────────────────────────────────┘
 ```
 
-### מודולים עיקריים
+### Main modules
 
-| קובץ | תפקיד |
+| File | Role |
 |------|--------|
-| `backend/server.js` | נקודת כניסה, middleware |
-| `backend/services/geminiVisionService.js` | שליחה ל-Gemini Vision, פענוח JSON |
-| `backend/services/calorieCalculator.js` | חישובי BMR/TDEE/מאקרו |
-| `backend/routes/food.js` | endpoint-ים לניהול ארוחות |
-| `backend/routes/goals.js` | endpoint-ים לניהול מטרות |
-| `frontend/src/context/AppContext.js` | מצב גלובלי (React Context) |
-| `frontend/src/services/apiService.js` | לקוח HTTP מרכזי |
-| `frontend/src/services/healthKitService.js` | ממשק HealthKit/Google Fit |
+| `backend/server.js` | Entry point, middleware |
+| `backend/services/geminiVisionService.js` | Sends to Gemini Vision, parses JSON |
+| `backend/services/calorieCalculator.js` | BMR/TDEE/macro calculations |
+| `backend/routes/food.js` | Endpoints for managing meals |
+| `backend/routes/goals.js` | Endpoints for managing goals |
+| `frontend/src/context/AppContext.js` | Global state (React Context) |
+| `frontend/src/services/apiService.js` | Central HTTP client |
+| `frontend/src/services/healthKitService.js` | HealthKit/Google Fit interface |
 
 ---
 
-## 6. מבנה מסד הנתונים
+## 6. Database structure
 
-### פרופיל משתמש
-**נתיב:** `users/{uid}/profile/data`
+### User profile
+**Path:** `users/{uid}/profile/data`
 
 ```json
 {
@@ -307,8 +307,8 @@ const BASE_URL = 'http://192.168.1.XXX:3000/api';
 }
 ```
 
-### מטרה יומית
-**נתיב:** `users/{uid}/goals/{YYYY-MM-DD}`
+### Daily goal
+**Path:** `users/{uid}/goals/{YYYY-MM-DD}`
 
 ```json
 {
@@ -324,8 +324,8 @@ const BASE_URL = 'http://192.168.1.XXX:3000/api';
 }
 ```
 
-### ארוחה בודדת
-**נתיב:** `users/{uid}/dailyLogs/{date}/meals/{mealId}`
+### Single meal
+**Path:** `users/{uid}/dailyLogs/{date}/meals/{mealId}`
 
 ```json
 {
@@ -343,13 +343,13 @@ const BASE_URL = 'http://192.168.1.XXX:3000/api';
 }
 ```
 
-**שדה `source` יכול להיות:**
-- `ai_scan` — זוהה על-ידי Gemini Vision מתמונה
-- `manual` — הוזן ידנית על-ידי המשתמש
-- `health_sync` — יובא מ-HealthKit/Google Fit
+**The `source` field can be:**
+- `ai_scan` — identified by Gemini Vision from an image
+- `manual` — entered manually by the user
+- `health_sync` — imported from HealthKit/Google Fit
 
-### סיכום יומי
-**נתיב:** `users/{uid}/dailyLogs/{date}`
+### Daily summary
+**Path:** `users/{uid}/dailyLogs/{date}`
 
 ```json
 {
@@ -365,85 +365,85 @@ const BASE_URL = 'http://192.168.1.XXX:3000/api';
 
 ---
 
-## 7. ה-API של השרת
+## 7. Server API
 
-**כתובת בסיס:** `http://localhost:3000/api`
+**Base URL:** `http://localhost:3000/api`
 
-### ניהול ארוחות
+### Meal management
 
-| Method | Path | תיאור |
+| Method | Path | Description |
 |--------|------|--------|
-| POST | `/food/scan` | סריקת תמונת מזון עם AI |
-| POST | `/food/manual` | הוספת ארוחה ידנית |
-| GET | `/food/log/:uid/:date` | שליפת ארוחות לתאריך |
-| DELETE | `/food/meal/:uid/:date/:mealId` | מחיקת ארוחה |
+| POST | `/food/scan` | Scan a food image with AI |
+| POST | `/food/manual` | Add a meal manually |
+| GET | `/food/log/:uid/:date` | Fetch meals for a date |
+| DELETE | `/food/meal/:uid/:date/:mealId` | Delete a meal |
 
-### ניהול מטרות
+### Goal management
 
-| Method | Path | תיאור |
+| Method | Path | Description |
 |--------|------|--------|
-| GET | `/goals/:uid` | שליפת מטרה יומית |
-| POST | `/goals/:uid` | הגדרת מטרה ידנית |
-| GET | `/goals/:uid/balance` | יתרת קלוריות ומאקרו |
-| POST | `/goals/:uid/from-quiz` | חישוב מטרה מפרטי גוף |
-| POST | `/goals/:uid/auto` | חישוב מטרה מפרופיל שמור |
+| GET | `/goals/:uid` | Fetch the daily goal |
+| POST | `/goals/:uid` | Set a manual goal |
+| GET | `/goals/:uid/balance` | Calorie and macro balance |
+| POST | `/goals/:uid/from-quiz` | Calculate goal from body details |
+| POST | `/goals/:uid/auto` | Calculate goal from saved profile |
 
-### סנכרון בריאות
+### Health sync
 
-| Method | Path | תיאור |
+| Method | Path | Description |
 |--------|------|--------|
-| POST | `/health/sync` | קבלת נתוני אימונים |
-| GET | `/health/summary/:uid/:date` | סיכום פעילות יומי |
+| POST | `/health/sync` | Receive workout data |
+| GET | `/health/summary/:uid/:date` | Daily activity summary |
 
 ---
 
-## 8. זרימת הנתונים
+## 8. Data flow
 
-### זרימת סריקת מזון
-
-```
-משתמש לוחץ "צלם"
-        ↓
-expo-camera פותח מצלמה
-        ↓
-משתמש מצלם תמונה
-        ↓
-base64 נשלח לשרת (POST /food/scan)
-        ↓
-השרת שולח ל-Gemini Vision API
-        ↓
-Gemini מחזיר JSON עם ערכים תזונתיים
-        ↓
-השרת שומר בFirestore + מעלה תמונה לStorage
-        ↓
-AppContext מעדכן מצב גלובלי
-        ↓
-DashboardScreen מרנדר את הארוחה החדשה + הודעת הצלחה
-```
-
-### זרימת חישוב מטרה מהשאלון
+### Food scan flow
 
 ```
-משתמש ממלא: גובה + משקל + גיל + מין + פעילות
+User taps "Take photo"
+        ↓
+expo-camera opens the camera
+        ↓
+User takes a photo
+        ↓
+base64 is sent to the server (POST /food/scan)
+        ↓
+The server sends it to the Gemini Vision API
+        ↓
+Gemini returns JSON with nutritional values
+        ↓
+The server saves to Firestore + uploads the image to Storage
+        ↓
+AppContext updates the global state
+        ↓
+DashboardScreen renders the new meal + success message
+```
+
+### Goal calculation flow from the quiz
+
+```
+User fills in: height + weight + age + gender + activity
         ↓
 POST /api/goals/:uid/from-quiz
         ↓
 calorieCalculator.calculateBMR()
         ↓
-calorieCalculator.calculateTDEE()  (BMR × מכפיל פעילות)
+calorieCalculator.calculateTDEE()  (BMR × activity multiplier)
         ↓
 calorieCalculator.calculateMacroTargets()
-  (25% חלבון, 45% פחמימות, 30% שומן)
+  (25% protein, 45% carbs, 30% fat)
         ↓
-שמירת המטרה ב-Firestore
+Save the goal to Firestore
         ↓
-AppContext.loadDailyData() — מרענן את הדשבורד
+AppContext.loadDailyData() — refreshes the dashboard
 ```
 
-### זרימת סנכרון HealthKit
+### HealthKit sync flow
 
 ```
-משתמש לוחץ "סנכרן נתוני בריאות"
+User taps "Sync health data"
         ↓
 healthKitService.requestPermissions()
         ↓
@@ -451,56 +451,56 @@ healthKitService.getTodayWorkouts() + getTodaySteps()
         ↓
 apiService.syncHealthData() → POST /health/sync
         ↓
-השרת מחשב סה״כ קלוריות שנשרפו
+The server calculates total calories burned
         ↓
-עדכון dailyLogs/{date}.activeCaloriesBurned
+Updates dailyLogs/{date}.activeCaloriesBurned
         ↓
-הדשבורד מציג "קלוריות נטו" (נצרכו − נשרפו)
+The dashboard shows "net calories" (consumed − burned)
 ```
 
 ---
 
-## 9. מפתחות API נדרשים
+## 9. Required API keys
 
 ### Google Gemini API
 
-1. עבור ל-[Google AI Studio](https://aistudio.google.com)
-2. לחץ "Get API Key"
-3. צור פרויקט חדש
-4. העתק את המפתח לשדה `GEMINI_API_KEY` ב-`.env`
+1. Go to [Google AI Studio](https://aistudio.google.com)
+2. Click "Get API Key"
+3. Create a new project
+4. Copy the key into the `GEMINI_API_KEY` field in `.env`
 
-**מודל בשימוש:** `gemini-1.5-flash` (מהיר וחסכוני)
-**עלות משוערת:** ~$0.0001 לתמונה
+**Model used:** `gemini-1.5-flash` (fast and inexpensive)
+**Estimated cost:** ~$0.0001 per image
 
 ### Firebase
 
-1. עבור ל-[Firebase Console](https://console.firebase.google.com)
-2. צור פרויקט חדש
-3. הפעל **Firestore Database** (Production mode)
-4. הפעל **Storage**
-5. עבור ל-Project Settings → Service Accounts
-6. לחץ "Generate new private key"
-7. העתק את הפרטים לשדות המתאימים ב-`.env`
+1. Go to [Firebase Console](https://console.firebase.google.com)
+2. Create a new project
+3. Enable **Firestore Database** (Production mode)
+4. Enable **Storage**
+5. Go to Project Settings → Service Accounts
+6. Click "Generate new private key"
+7. Copy the details into the matching fields in `.env`
 
 ---
 
-## 10. שאלות נפוצות
+## 10. FAQ
 
-**ש: ה-AI זיהה את המזון שגוי, מה עושים?**
-ת: לחץ "בטל" ובחר "הזנה ידנית" להכנסת הערכים הנכונים. לצילום טוב יותר — וודא תאורה טובה וצלם מלמעלה.
+**Q: The AI identified the food incorrectly, what do I do?**
+A: Tap "Cancel" and choose "Manual entry" to enter the correct values. For a better photo — make sure the lighting is good and shoot from directly above.
 
-**ש: הסנכרון עם Apple Watch לא עובד?**
-ת: וודא שהענקת הרשאת בריאות לאפליקציה ב: הגדרות → פרטיות ואבטחה → בריאות → HealthTracker.
+**Q: Sync with Apple Watch isn't working?**
+A: Make sure you granted the app health permission at: Settings → Privacy & Security → Health → HealthTracker.
 
-**ש: הקלוריות לא מתעדכנות אחרי הוספת ארוחה?**
-ת: גרור למטה בדשבורד (Pull to Refresh) לרענון הנתונים מהשרת.
+**Q: Calories don't update after I add a meal?**
+A: Pull down on the dashboard (Pull to Refresh) to refresh the data from the server.
 
-**ש: איך מאפסים את כל הנתונים?**
-ת: מחק את מסמכי ה-Firestore של המשתמש דרך Firebase Console.
+**Q: How do I reset all the data?**
+A: Delete the user's Firestore documents via the Firebase Console.
 
-**ש: האפליקציה רצה בדפדפן (Web) — למה המצלמה לא עובדת?**
-ת: גישה ישירה למצלמת המכשיר מצריכה הרצה על נייד אמיתי או סימולטור. בדפדפן האפשרות מוגבלת.
+**Q: The app is running in a browser (Web) — why doesn't the camera work?**
+A: Direct access to the device camera requires running on an actual device or simulator. Browser support is limited.
 
 ---
 
-*גרסה 1.0 | נוצר עם Claude AI*
+*Version 1.0 | Created with Claude AI*

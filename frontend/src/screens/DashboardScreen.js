@@ -1,5 +1,5 @@
 /**
- * screens/DashboardScreen.js — דשבורד ראשי
+ * screens/DashboardScreen.js — main dashboard
  */
 
 import React, { useEffect, useState, useMemo, useRef } from 'react';
@@ -81,7 +81,7 @@ export default function DashboardScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={c.mint} />
         }
       >
-        {/* כותרת + כפתור מצב */}
+        {/* header + mode toggle button */}
         <View style={styles.headerRow}>
           {/* toggle — left side (RTL) */}
           <ThemeToggle />
@@ -92,7 +92,7 @@ export default function DashboardScreen() {
           </View>
         </View>
 
-        {/* טבעת קלוריות */}
+        {/* calorie ring */}
         {balance ? (
           <View style={styles.ringCard}>
             <CalorieRing
@@ -107,7 +107,7 @@ export default function DashboardScreen() {
           </View>
         )}
 
-        {/* מקרו — Bento Grid */}
+        {/* macros — Bento Grid */}
         <View style={styles.macroSection}>
           <Text style={styles.sectionTitle}>מאקרו-נוטריינטים</Text>
           <View style={styles.macroGrid}>
@@ -150,7 +150,7 @@ export default function DashboardScreen() {
           </View>
         </View>
 
-        {/* כפתור סנכרון */}
+        {/* sync button */}
         <TouchableOpacity
           style={[styles.syncButton, syncingHealth && styles.syncButtonDisabled]}
           onPress={handleSyncHealth}
@@ -161,7 +161,7 @@ export default function DashboardScreen() {
           </Text>
         </TouchableOpacity>
 
-        {/* ארוחות היום */}
+        {/* today's meals */}
         <View style={styles.mealsSection}>
           <Text style={styles.sectionTitle}>
             ארוחות היום ({meals.length})

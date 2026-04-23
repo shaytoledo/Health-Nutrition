@@ -1,5 +1,5 @@
 /**
- * components/MacroProgressBar.js — שורת התקדמות מאקרו
+ * components/MacroProgressBar.js — macro progress bar row
  */
 
 import React from 'react';

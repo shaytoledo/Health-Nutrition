@@ -1,5 +1,5 @@
 /**
- * components/MealItem.js — שורת ארוחה בודדת ברשימת ארוחות
+ * components/MealItem.js — single meal row in the meals list
  */
 
 import React, { useMemo } from 'react';

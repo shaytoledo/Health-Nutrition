@@ -1,31 +1,34 @@
 /**
- * context/AppContext.js — Global state (auth + meals, fully client-side)
+ * context/AppContext.js — Global state (auth + meals + history)
+ *
+ * All data operations are async and route through dataService,
+ * which auto-switches between Firestore (cloud) and localStorage (local).
  */
 
 import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
+import { signOut as authSignOut, restoreSession } from '../services/authService';
 import {
-  signOut as authSignOut,
-  restoreSession,
-  saveProfileToStorage,
-  loadProfileFromStorage,
-} from '../services/authService';
-import {
-  getMealsLocal,
-  addMealLocal,
-  deleteMealLocal,
-  computeBalanceLocal,
-  saveGoalsLocal,
-  getGoalsLocal,
-} from '../services/localDataService';
+  getMeals,
+  addMeal,
+  deleteMeal,
+  computeBalance,
+  saveGoals,
+  getProfile,
+  saveProfile,
+  getPastDaysSummaries,
+  isCloudEnabled,
+} from '../services/dataService';
 
 const initialState = {
   currentUser: null,
   userProfile: null,
   balance:     null,
   meals:       [],
+  pastDays:    [],      // last 7 days summaries for history chart
   isLoading:   false,
   authReady:   false,
   error:       null,
+  cloudSync:   false,   // whether Firestore is active
 };
 
 const A = {
@@ -33,6 +36,7 @@ const A = {
   SET_PROFILE:  'SET_PROFILE',
   SET_BALANCE:  'SET_BALANCE',
   SET_MEALS:    'SET_MEALS',
+  SET_PAST:     'SET_PAST',
   ADD_MEAL:     'ADD_MEAL',
   REMOVE_MEAL:  'REMOVE_MEAL',
   SET_LOADING:  'SET_LOADING',
@@ -40,20 +44,23 @@ const A = {
   CLEAR_ERROR:  'CLEAR_ERROR',
   AUTH_READY:   'AUTH_READY',
   SIGN_OUT:     'SIGN_OUT',
+  SET_CLOUD:    'SET_CLOUD',
 };
 
 function reducer(state, action) {
   switch (action.type) {
     case A.SET_USER:    return { ...state, currentUser: action.payload };
     case A.SET_PROFILE: return { ...state, userProfile: action.payload };
-    case A.SET_BALANCE: return { ...state, balance: action.payload };
-    case A.SET_MEALS:   return { ...state, meals: action.payload };
+    case A.SET_BALANCE: return { ...state, balance:     action.payload };
+    case A.SET_MEALS:   return { ...state, meals:       action.payload };
+    case A.SET_PAST:    return { ...state, pastDays:    action.payload };
     case A.ADD_MEAL:    return { ...state, meals: [action.payload, ...state.meals] };
     case A.REMOVE_MEAL: return { ...state, meals: state.meals.filter((m) => m.id !== action.payload) };
     case A.SET_LOADING: return { ...state, isLoading: action.payload };
     case A.SET_ERROR:   return { ...state, error: action.payload, isLoading: false };
     case A.CLEAR_ERROR: return { ...state, error: null };
     case A.AUTH_READY:  return { ...state, authReady: true };
+    case A.SET_CLOUD:   return { ...state, cloudSync: action.payload };
     case A.SIGN_OUT:    return { ...initialState, authReady: true };
     default:            return state;
   }
@@ -64,68 +71,102 @@ const AppContext = createContext(null);
 export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, initialState);
 
-  // Restore session on mount
+  // ── Restore session on mount ───────────────────────────────────────────────
   useEffect(() => {
-    const session = restoreSession();
-    if (session) {
-      dispatch({ type: A.SET_USER, payload: session });
-      const profile = loadProfileFromStorage(session.uid);
-      if (profile) dispatch({ type: A.SET_PROFILE, payload: profile });
+    (async () => {
+      dispatch({ type: A.SET_CLOUD, payload: isCloudEnabled() });
+      const session = restoreSession();
+      if (session) {
+        dispatch({ type: A.SET_USER, payload: session });
+        try {
+          const profile = await getProfile(session.uid);
+          if (profile) dispatch({ type: A.SET_PROFILE, payload: profile });
+        } catch {}
+      }
+      dispatch({ type: A.AUTH_READY });
+    })();
+  }, []);
+
+  // ── Daily data + history ───────────────────────────────────────────────────
+  const loadDailyData = useCallback(async (uid) => {
+    if (!uid) return;
+    const date = new Date().toISOString().split('T')[0];
+    try {
+      const [meals, balance] = await Promise.all([
+        getMeals(uid, date),
+        computeBalance(uid, date),
+      ]);
+      dispatch({ type: A.SET_MEALS,   payload: meals });
+      dispatch({ type: A.SET_BALANCE, payload: balance });
+    } catch (e) {
+      dispatch({ type: A.SET_ERROR, payload: e.message });
     }
-    dispatch({ type: A.AUTH_READY });
   }, []);
 
-  const loadDailyData = useCallback((uid) => {
+  const loadHistory = useCallback(async (uid) => {
+    if (!uid) return;
+    try {
+      const summaries = await getPastDaysSummaries(uid, 7);
+      dispatch({ type: A.SET_PAST, payload: summaries });
+    } catch {}
+  }, []);
+
+  const refreshBalance = useCallback(async (uid) => {
     if (!uid) return;
     const date    = new Date().toISOString().split('T')[0];
-    const meals   = getMealsLocal(uid, date);
-    const balance = computeBalanceLocal(uid, date);
-    dispatch({ type: A.SET_MEALS,   payload: meals });
+    const balance = await computeBalance(uid, date);
     dispatch({ type: A.SET_BALANCE, payload: balance });
   }, []);
 
-  // Re-load after profile or goals change so balance reflects new targets
-  const refreshBalance = useCallback((uid) => {
-    if (!uid) return;
-    const date    = new Date().toISOString().split('T')[0];
-    const balance = computeBalanceLocal(uid, date);
-    dispatch({ type: A.SET_BALANCE, payload: balance });
-  }, []);
-
-  const signIn = useCallback((session) => {
+  // ── Auth ───────────────────────────────────────────────────────────────────
+  const signIn = useCallback(async (session) => {
     dispatch({ type: A.SET_USER, payload: session });
-    const profile = loadProfileFromStorage(session.uid);
-    if (profile) dispatch({ type: A.SET_PROFILE, payload: profile });
-    loadDailyData(session.uid);
-  }, [loadDailyData]);
+    try {
+      const profile = await getProfile(session.uid);
+      if (profile) dispatch({ type: A.SET_PROFILE, payload: profile });
+    } catch {}
+    await loadDailyData(session.uid);
+    loadHistory(session.uid); // non-blocking
+  }, [loadDailyData, loadHistory]);
 
   const signOut = useCallback(async () => {
     await authSignOut();
     dispatch({ type: A.SIGN_OUT });
   }, []);
 
-  const logMeal = useCallback((uid, mealData) => {
+  // ── Meals ──────────────────────────────────────────────────────────────────
+  const logMeal = useCallback(async (uid, mealData) => {
     const date = new Date().toISOString().split('T')[0];
-    const meal = addMealLocal(uid, date, mealData);
-    dispatch({ type: A.ADD_MEAL, payload: meal });
-    const balance = computeBalanceLocal(uid, date);
-    dispatch({ type: A.SET_BALANCE, payload: balance });
-    return meal;
+    try {
+      const meal    = await addMeal(uid, date, mealData);
+      const balance = await computeBalance(uid, date);
+      dispatch({ type: A.ADD_MEAL,    payload: meal });
+      dispatch({ type: A.SET_BALANCE, payload: balance });
+      return meal;
+    } catch (e) {
+      dispatch({ type: A.SET_ERROR, payload: e.message });
+    }
   }, []);
 
-  const deleteMeal = useCallback((uid, mealId) => {
+  const deleteMealFn = useCallback(async (uid, mealId) => {
     const date = new Date().toISOString().split('T')[0];
-    deleteMealLocal(uid, date, mealId);
-    dispatch({ type: A.REMOVE_MEAL, payload: mealId });
-    const balance = computeBalanceLocal(uid, date);
-    dispatch({ type: A.SET_BALANCE, payload: balance });
+    try {
+      await deleteMeal(uid, date, mealId);
+      const balance = await computeBalance(uid, date);
+      dispatch({ type: A.REMOVE_MEAL, payload: mealId });
+      dispatch({ type: A.SET_BALANCE, payload: balance });
+    } catch (e) {
+      dispatch({ type: A.SET_ERROR, payload: e.message });
+    }
   }, []);
 
-  const saveProfile = useCallback((profile) => {
+  // ── Profile + Goals ────────────────────────────────────────────────────────
+  const saveProfileFn = useCallback(async (profile) => {
     dispatch({ type: A.SET_PROFILE, payload: profile });
-    if (state.currentUser?.uid) {
-      saveProfileToStorage(state.currentUser.uid, profile);
-      // Recalculate goals from new profile
+    const uid = state.currentUser?.uid;
+    if (!uid) return;
+    try {
+      await saveProfile(uid, profile);
       const tdee = calcTDEE(profile);
       if (tdee) {
         const goals = {
@@ -134,9 +175,11 @@ export function AppProvider({ children }) {
           targetCarbsG:   Math.round((tdee * 0.45) / 4),
           targetFatG:     Math.round((tdee * 0.30) / 9),
         };
-        saveGoalsLocal(state.currentUser.uid, goals);
-        refreshBalance(state.currentUser.uid);
+        await saveGoals(uid, goals);
+        await refreshBalance(uid);
       }
+    } catch (e) {
+      dispatch({ type: A.SET_ERROR, payload: e.message });
     }
   }, [state.currentUser, refreshBalance]);
 
@@ -147,10 +190,11 @@ export function AppProvider({ children }) {
       ...state,
       signIn,
       signOut,
-      saveProfile,
+      saveProfile:  saveProfileFn,
       loadDailyData,
+      loadHistory,
       logMeal,
-      deleteMeal,
+      deleteMeal:   deleteMealFn,
       clearError,
       refreshBalance,
     }}>
@@ -165,7 +209,7 @@ export function useApp() {
   return ctx;
 }
 
-// ── Harris-Benedict BMR → TDEE → goal calories ───────────────────────────────
+// ── Harris-Benedict BMR → TDEE → goal calories ────────────────────────────────
 const MULTIPLIERS = {
   sedentary:   1.2,
   light:       1.375,
@@ -187,8 +231,8 @@ function calcTDEE({ weightKg, heightCm, age, gender, activityLevel, weightGoal }
   const bmr = gender === 'female'
     ? 447.593 + (9.247 * weightKg) + (3.098 * heightCm) - (4.330 * age)
     : 88.362  + (13.397 * weightKg) + (4.799 * heightCm) - (5.677 * age);
-  const tdee  = bmr * (MULTIPLIERS[activityLevel] || 1.55);
-  const delta = GOAL_DELTAS[weightGoal] ?? 0;
+  const tdee    = bmr * (MULTIPLIERS[activityLevel] || 1.55);
+  const delta   = GOAL_DELTAS[weightGoal] ?? 0;
   const minKcal = gender === 'female' ? 1200 : 1500;
   return Math.max(tdee + delta, minKcal);
 }

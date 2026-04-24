@@ -52,6 +52,13 @@ export function saveGoalsLocal(uid, goals) {
   lsSet(goalsKey(uid), goals);
 }
 
+// ── Profile ───────────────────────────────────────────────────────────────────
+
+function profileKey(uid) { return `profile_${uid}`; }
+
+export function getProfileLocal(uid)          { return lsGet(profileKey(uid)) || null; }
+export function saveProfileLocal(uid, profile) { lsSet(profileKey(uid), profile); }
+
 // ── Balance computation ──────────────────────────────────────────────────────
 
 export function computeBalanceLocal(uid, date) {
@@ -75,4 +82,17 @@ export function computeBalanceLocal(uid, date) {
       ? Math.min((consumed.totalCalories / targets.targetCalories) * 100, 100)
       : 0,
   };
+}
+
+// ── History: past N days summaries ────────────────────────────────────────────
+
+export function getPastDaysSummariesLocal(uid, numDays = 7) {
+  const today = new Date();
+  return Array.from({ length: numDays }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    const date    = d.toISOString().split('T')[0];
+    const balance = computeBalanceLocal(uid, date);
+    return { date, ...balance };
+  });
 }

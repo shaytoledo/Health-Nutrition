@@ -7,6 +7,8 @@
 
 import React, { createContext, useContext, useReducer, useCallback, useEffect, useRef } from 'react';
 import { signOut as authSignOut, restoreSession } from '../services/authService';
+import { recordUserLogin } from '../services/adminService';
+import { setGeminiUser } from '../services/geminiService';
 import { FIREBASE_CONFIG, FIREBASE_ENABLED } from '../config/firebaseConfig';
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
@@ -114,6 +116,8 @@ export function AppProvider({ children }) {
               };
               try { localStorage.setItem('auth_session', JSON.stringify(session)); } catch {}
               dispatch({ type: A.SET_USER, payload: session });
+              setGeminiUser(session);
+              recordUserLogin(session); // non-blocking admin tracking
               try {
                 const profile = await getProfile(firebaseUser.uid);
                 if (profile) dispatch({ type: A.SET_PROFILE, payload: profile });
@@ -184,6 +188,8 @@ export function AppProvider({ children }) {
   // ── Auth ───────────────────────────────────────────────────────────────────
   const signIn = useCallback(async (session) => {
     dispatch({ type: A.SET_USER, payload: session });
+    setGeminiUser(session);
+    recordUserLogin(session); // non-blocking admin tracking
     try {
       const profile = await getProfile(session.uid);
       if (profile) dispatch({ type: A.SET_PROFILE, payload: profile });

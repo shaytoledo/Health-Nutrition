@@ -14,11 +14,13 @@ import { AppProvider, useApp } from './src/context/AppContext';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { GOOGLE_CLIENT_ID } from './src/config/appConfig';
 
-import AuthScreen      from './src/screens/AuthScreen';
-import DashboardScreen from './src/screens/DashboardScreen';
-import FoodScanScreen  from './src/screens/FoodScanScreen';
-import GoalsScreen     from './src/screens/GoalsScreen';
-import ProfileScreen   from './src/screens/ProfileScreen';
+import AuthScreen          from './src/screens/AuthScreen';
+import DashboardScreen     from './src/screens/DashboardScreen';
+import FoodScanScreen      from './src/screens/FoodScanScreen';
+import GoalsScreen         from './src/screens/GoalsScreen';
+import ProfileScreen       from './src/screens/ProfileScreen';
+import AdminDashboardScreen from './src/screens/AdminDashboardScreen';
+import { isAdmin }         from './src/services/adminService';
 
 // Google OAuth provider — web only
 let GoogleOAuthProvider = ({ children }) => children;
@@ -32,18 +34,20 @@ I18nManager.forceRTL(true);
 
 const Tab = createBottomTabNavigator();
 
-const TABS = [
+const BASE_TABS = [
   { name: 'Dashboard', icon: '🏠' },
   { name: 'Scan',      icon: '📷' },
   { name: 'Goals',     icon: '🎯' },
   { name: 'Profile',   icon: '👤' },
 ];
+const ADMIN_TAB = { name: 'Admin', icon: '🔑' };
 
 const SCREENS = {
   Dashboard: DashboardScreen,
   Scan:      FoodScanScreen,
   Goals:     GoalsScreen,
   Profile:   ProfileScreen,
+  Admin:     AdminDashboardScreen,
 };
 
 function MainApp() {
@@ -61,6 +65,8 @@ function MainApp() {
   if (!currentUser) {
     return <AuthScreen onAuthSuccess={signIn} />;
   }
+
+  const TABS = isAdmin(currentUser) ? [...BASE_TABS, ADMIN_TAB] : BASE_TABS;
 
   return (
     <NavigationContainer>

@@ -7,6 +7,11 @@
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { GEMINI_API_KEY } from '../config/appConfig';
+import { logGeminiRequest } from './adminService';
+
+// Called by screens to pass the current user. Set once on login.
+let _currentUser = null;
+export function setGeminiUser(user) { _currentUser = user || null; }
 
 const SYSTEM_INSTRUCTION = `
 You are a professional nutritionist and food recognition AI.
@@ -54,6 +59,7 @@ export async function analyzeFood(imageSource, mimeType = 'image/jpeg') {
     throw new Error('Gemini API key not configured. Add GEMINI_API_KEY in src/config/appConfig.js');
   }
 
+  const _t0 = Date.now();
   const base64 = await toBase64(imageSource, mimeType);
 
   const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
@@ -82,22 +88,42 @@ export async function analyzeFood(imageSource, mimeType = 'image/jpeg') {
       lastError = e;
       const msg = String(e?.message || e);
       const retryable = /\b(503|429|500|502|504|overloaded|unavailable|high demand|quota)\b/i.test(msg);
-      if (!retryable) throw e;
+      if (!retryable) {
+        logGeminiRequest({
+          uid: _currentUser?.uid, email: _currentUser?.email,
+          type: 'scan', input: `image/${mimeType}`,
+          error: msg, durationMs: Date.now() - _t0,
+        });
+        throw e;
+      }
     }
   }
-  if (!result) throw lastError || new Error('All Gemini models unavailable');
+  if (!result) {
+    logGeminiRequest({
+      uid: _currentUser?.uid, email: _currentUser?.email,
+      type: 'scan', input: `image/${mimeType}`,
+      error: String(lastError?.message || 'All Gemini models unavailable'),
+      durationMs: Date.now() - _t0,
+    });
+    throw lastError || new Error('All Gemini models unavailable');
+  }
 
   const rawText = result.response.text();
   const cleaned = rawText.replace(/```json|```/g, '').trim();
   const parsed  = JSON.parse(cleaned);
 
   if (parsed.error === 'UNRECOGNIZED') {
+    logGeminiRequest({
+      uid: _currentUser?.uid, email: _currentUser?.email,
+      type: 'scan', input: `image/${mimeType}`,
+      error: 'UNRECOGNIZED', durationMs: Date.now() - _t0,
+    });
     const err = new Error('Food not recognized');
     err.code = 'FOOD_NOT_RECOGNIZED';
     throw err;
   }
 
-  return {
+  const out = {
     description: parsed.description || 'Unknown food',
     calories:    Math.round(Number(parsed.calories) || 0),
     proteinG:    Math.round(Number(parsed.proteinG)  || 0),
@@ -105,6 +131,14 @@ export async function analyzeFood(imageSource, mimeType = 'image/jpeg') {
     fatG:        Math.round(Number(parsed.fatG)      || 0),
     confidence:  parseFloat(parsed.confidence)       || 0,
   };
+  logGeminiRequest({
+    uid: _currentUser?.uid, email: _currentUser?.email,
+    type: 'scan', input: `image/${mimeType}`,
+    description: out.description, calories: out.calories,
+    proteinG: out.proteinG, carbsG: out.carbsG, fatG: out.fatG,
+    durationMs: Date.now() - _t0,
+  });
+  return out;
 }
 
 /**
@@ -120,6 +154,7 @@ export async function analyzeFoodByName(foodName, grams) {
     throw new Error('Food name and positive grams required.');
   }
 
+  const _t0 = Date.now();
   const prompt = `
 Estimate nutrition for ${grams} grams of "${foodName}".
 Return ONLY a valid JSON object with EXACTLY these fields:
@@ -157,22 +192,42 @@ Do NOT include markdown or any text outside the JSON.
       lastError = e;
       const msg = String(e?.message || e);
       const retryable = /\b(503|429|500|502|504|overloaded|unavailable|high demand|quota)\b/i.test(msg);
-      if (!retryable) throw e;
+      if (!retryable) {
+        logGeminiRequest({
+          uid: _currentUser?.uid, email: _currentUser?.email,
+          type: 'byName', input: `${foodName} ${grams}g`,
+          error: msg, durationMs: Date.now() - _t0,
+        });
+        throw e;
+      }
     }
   }
-  if (!result) throw lastError || new Error('All Gemini models unavailable');
+  if (!result) {
+    logGeminiRequest({
+      uid: _currentUser?.uid, email: _currentUser?.email,
+      type: 'byName', input: `${foodName} ${grams}g`,
+      error: String(lastError?.message || 'All Gemini models unavailable'),
+      durationMs: Date.now() - _t0,
+    });
+    throw lastError || new Error('All Gemini models unavailable');
+  }
 
   const rawText = result.response.text();
   const cleaned = rawText.replace(/```json|```/g, '').trim();
   const parsed  = JSON.parse(cleaned);
 
   if (parsed.error === 'UNRECOGNIZED') {
+    logGeminiRequest({
+      uid: _currentUser?.uid, email: _currentUser?.email,
+      type: 'byName', input: `${foodName} ${grams}g`,
+      error: 'UNRECOGNIZED', durationMs: Date.now() - _t0,
+    });
     const err = new Error('Food not recognized');
     err.code = 'FOOD_NOT_RECOGNIZED';
     throw err;
   }
 
-  return {
+  const out = {
     description: parsed.description || `${foodName} ${grams}g`,
     calories:    Math.round(Number(parsed.calories) || 0),
     proteinG:    Math.round(Number(parsed.proteinG)  || 0),
@@ -180,4 +235,12 @@ Do NOT include markdown or any text outside the JSON.
     fatG:        Math.round(Number(parsed.fatG)      || 0),
     confidence:  parseFloat(parsed.confidence)       || 0,
   };
+  logGeminiRequest({
+    uid: _currentUser?.uid, email: _currentUser?.email,
+    type: 'byName', input: `${foodName} ${grams}g`,
+    description: out.description, calories: out.calories,
+    proteinG: out.proteinG, carbsG: out.carbsG, fatG: out.fatG,
+    durationMs: Date.now() - _t0,
+  });
+  return out;
 }

@@ -1,20 +1,42 @@
 // firestore.rules
 //
-// Schema used by cloudDataService.js:
-//   users/{uid}/meals/{date}     → { items: Meal[] }
-//   users/{uid}/data/goals       → GoalsDoc
-//   users/{uid}/data/profile     → ProfileDoc
+// Schema:
+//   users/{uid}/meals/{date}   → { items: Meal[] }
+//   users/{uid}/data/goals     → GoalsDoc
+//   users/{uid}/data/profile   → ProfileDoc
+//   userDirectory/{uid}        → { email, name, provider, createdAt, lastLoginAt, loginCount }
+//   geminiLogs/{autoId}        → { uid, email, type, input, description, error, durationMs, ts }
 //
-// Each user can only read/write their own documents.
+// Admin (by email) can read userDirectory and geminiLogs for the dashboard.
 // Deploy: Firebase Console → Firestore → Rules → paste & publish
 
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function isSignedIn() { return request.auth != null; }
+    function isAdmin()    { return isSignedIn() && request.auth.token.email == 'shay.toledo1@gmail.com'; }
+
+    // ── Per-user private data ────────────────────────────────────────────────
     match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
     }
-    // Deny everything else
+
+    // ── User directory: each user maintains their own entry; admin can list. ─
+    match /userDirectory/{userId} {
+      allow read:        if isAdmin() || (isSignedIn() && request.auth.uid == userId);
+      allow create, update: if isSignedIn() && request.auth.uid == userId;
+      allow delete:      if isAdmin();
+    }
+
+    // ── Gemini logs: authed users create their own rows; admin reads all. ────
+    match /geminiLogs/{logId} {
+      allow read:   if isAdmin();
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // Deny everything else by default.
     match /{document=**} {
       allow read, write: if false;
     }

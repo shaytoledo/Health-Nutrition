@@ -34,21 +34,31 @@ I18nManager.forceRTL(true);
 
 const Tab = createBottomTabNavigator();
 
-const BASE_TABS = [
+const TABS = [
   { name: 'Dashboard', icon: '🏠' },
   { name: 'Scan',      icon: '📷' },
   { name: 'Goals',     icon: '🎯' },
   { name: 'Profile',   icon: '👤' },
 ];
-const ADMIN_TAB = { name: 'Admin', icon: '🔑' };
 
 const SCREENS = {
   Dashboard: DashboardScreen,
   Scan:      FoodScanScreen,
   Goals:     GoalsScreen,
   Profile:   ProfileScreen,
-  Admin:     AdminDashboardScreen,
 };
+
+// Hidden admin route: accessible only via ?admin=1 in the URL.
+// No tab, no link — regular users (and even the admin on normal navigation)
+// see no trace of this. Firestore rules still enforce admin-only reads.
+function isAdminRouteRequested() {
+  if (Platform.OS !== 'web') return false;
+  try {
+    const s = window.location.search || '';
+    const h = window.location.hash   || '';
+    return /[?&]admin(=1)?(&|$)/.test(s) || h === '#admin';
+  } catch { return false; }
+}
 
 function MainApp() {
   const { currentUser, authReady, signIn } = useApp();
@@ -66,7 +76,16 @@ function MainApp() {
     return <AuthScreen onAuthSuccess={signIn} />;
   }
 
-  const TABS = isAdmin(currentUser) ? [...BASE_TABS, ADMIN_TAB] : BASE_TABS;
+  // Hidden admin route — must be signed in as admin AND visit with ?admin=1.
+  // Renders the dashboard full-screen, outside the normal tab navigator.
+  if (isAdmin(currentUser) && isAdminRouteRequested()) {
+    return (
+      <>
+        <StatusBar style={isDark ? 'light' : 'dark'} />
+        <AdminDashboardScreen />
+      </>
+    );
+  }
 
   return (
     <NavigationContainer>

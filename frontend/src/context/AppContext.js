@@ -77,39 +77,66 @@ export function AppProvider({ children }) {
   useEffect(() => {
     dispatch({ type: A.SET_CLOUD, payload: isCloudEnabled() });
 
+    // Safety timeout — if Firebase hangs for any reason, unblock the app
+    // and fall back to the cached localStorage session.
+    let authReady = false;
+    const fallbackTimer = setTimeout(() => {
+      if (!authReady) {
+        const cached = restoreSession();
+        if (cached) dispatch({ type: A.SET_USER, payload: cached });
+        dispatch({ type: A.AUTH_READY });
+      }
+    }, 4000);
+
+    const markReady = () => {
+      authReady = true;
+      clearTimeout(fallbackTimer);
+    };
+
     if (FIREBASE_ENABLED) {
       // Firebase mode: onAuthStateChanged fires immediately with current user
       // (handles page refresh, tab reopen, cross-device)
       (async () => {
-        const { initializeApp, getApps } = await import('firebase/app');
-        const { getAuth, onAuthStateChanged } = await import('firebase/auth');
-        if (!getApps().length) initializeApp(FIREBASE_CONFIG);
-        const auth = getAuth();
+        try {
+          const { initializeApp, getApps } = await import('firebase/app');
+          const { getAuth, onAuthStateChanged } = await import('firebase/auth');
+          if (!getApps().length) initializeApp(FIREBASE_CONFIG);
+          const auth = getAuth();
 
-        unsubRef.current = onAuthStateChanged(auth, async (firebaseUser) => {
-          if (firebaseUser) {
-            const session = {
-              uid:      firebaseUser.uid,
-              name:     firebaseUser.displayName || firebaseUser.email,
-              email:    firebaseUser.email,
-              provider: firebaseUser.providerData[0]?.providerId === 'google.com' ? 'google' : 'email',
-            };
-            try { localStorage.setItem('auth_session', JSON.stringify(session)); } catch {}
-            dispatch({ type: A.SET_USER, payload: session });
-            try {
-              const profile = await getProfile(firebaseUser.uid);
-              if (profile) dispatch({ type: A.SET_PROFILE, payload: profile });
-            } catch {}
-          } else {
-            try { localStorage.removeItem('auth_session'); } catch {}
-          }
+          unsubRef.current = onAuthStateChanged(auth, async (firebaseUser) => {
+            markReady();
+            if (firebaseUser) {
+              const session = {
+                uid:      firebaseUser.uid,
+                name:     firebaseUser.displayName || firebaseUser.email,
+                email:    firebaseUser.email,
+                provider: firebaseUser.providerData[0]?.providerId === 'google.com' ? 'google' : 'email',
+              };
+              try { localStorage.setItem('auth_session', JSON.stringify(session)); } catch {}
+              dispatch({ type: A.SET_USER, payload: session });
+              try {
+                const profile = await getProfile(firebaseUser.uid);
+                if (profile) dispatch({ type: A.SET_PROFILE, payload: profile });
+              } catch {}
+            } else {
+              try { localStorage.removeItem('auth_session'); } catch {}
+            }
+            dispatch({ type: A.AUTH_READY });
+          });
+        } catch {
+          // Firebase failed to load — fall back to localStorage immediately
+          markReady();
+          const cached = restoreSession();
+          if (cached) dispatch({ type: A.SET_USER, payload: cached });
+          dispatch({ type: A.SET_CLOUD, payload: false });
           dispatch({ type: A.AUTH_READY });
-        });
+        }
       })();
-      return () => { if (unsubRef.current) unsubRef.current(); };
+      return () => { clearTimeout(fallbackTimer); if (unsubRef.current) unsubRef.current(); };
     } else {
       // localStorage demo mode
       (async () => {
+        markReady();
         const session = restoreSession();
         if (session) {
           dispatch({ type: A.SET_USER, payload: session });

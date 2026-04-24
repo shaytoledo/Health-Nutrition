@@ -83,10 +83,11 @@ export default function AuthScreen({ onAuthSuccess }) {
     // Firebase mode: use signInWithPopup → real Firebase UID → Firestore works
     if (FIREBASE_ENABLED) {
       try {
-        const session = await signInWithGoogle();
-        onAuthSuccess(session);
+        // signInWithRedirect navigates the page to Google — no return value.
+        // AppContext.onAuthStateChanged handles the session when user returns.
+        await signInWithGoogle();
+        // Page navigates away here; code below never runs in the redirect flow.
       } catch (e) {
-        // Show real Firebase error code to help diagnose
         setError('Google error: ' + (e?.code || e?.message || String(e)));
         setLoading(false);
       }

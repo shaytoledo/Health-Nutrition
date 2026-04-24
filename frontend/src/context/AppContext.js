@@ -99,9 +99,12 @@ export function AppProvider({ children }) {
       (async () => {
         try {
           const { initializeApp, getApps } = await import('firebase/app');
-          const { getAuth, onAuthStateChanged } = await import('firebase/auth');
+          const { getAuth, onAuthStateChanged, getRedirectResult } = await import('firebase/auth');
           if (!getApps().length) initializeApp(FIREBASE_CONFIG);
           const auth = getAuth();
+
+          // Process redirect result if returning from Google sign-in redirect
+          getRedirectResult(auth).catch(() => {});
 
           unsubRef.current = onAuthStateChanged(auth, async (firebaseUser) => {
             markReady();

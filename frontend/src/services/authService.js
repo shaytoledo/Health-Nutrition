@@ -116,10 +116,11 @@ export async function signInWithEmail(email, password) {
 export async function signInWithGoogle() {
   if (FIREBASE_ENABLED) {
     const auth = await getFirebaseAuth();
-    const { signInWithPopup, GoogleAuthProvider } = await import('firebase/auth');
-    const result = await signInWithPopup(auth, googleProvider);
-    const u = result.user;
-    return { uid: u.uid, name: u.displayName, email: u.email, provider: 'google' };
+    const { signInWithRedirect } = await import('firebase/auth');
+    // Redirect-based flow: navigates to Google → back to app.
+    // onAuthStateChanged in AppContext picks up the signed-in user on return.
+    await signInWithRedirect(auth, googleProvider);
+    return null; // page navigates away; this line is never reached
   }
 
   // Demo mock — simulates a Google account

@@ -11,7 +11,7 @@ import { recordUserLogin } from '../services/adminService';
 import { setGeminiUser } from '../services/geminiService';
 import { FIREBASE_CONFIG, FIREBASE_ENABLED } from '../config/firebaseConfig';
 import { initializeApp, getApps } from 'firebase/app';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, onAuthStateChanged, setPersistence, browserLocalPersistence, indexedDBLocalPersistence } from 'firebase/auth';
 import {
   getMeals,
   addMeal,
@@ -104,6 +104,14 @@ export function AppProvider({ children }) {
         try {
           if (!getApps().length) initializeApp(FIREBASE_CONFIG);
           const auth = getAuth();
+
+          // Ensure session persists across browser restarts on mobile.
+          // IndexedDB is more reliable than localStorage on iOS Safari.
+          try {
+            await setPersistence(auth, indexedDBLocalPersistence);
+          } catch {
+            try { await setPersistence(auth, browserLocalPersistence); } catch {}
+          }
 
           unsubRef.current = onAuthStateChanged(auth, async (firebaseUser) => {
             markReady();

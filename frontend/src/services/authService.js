@@ -24,6 +24,9 @@ import {
   updateProfile,
   signOut as fbSignOut,
   GoogleAuthProvider,
+  setPersistence,
+  browserLocalPersistence,
+  indexedDBLocalPersistence,
 } from 'firebase/auth';
 
 // Map Firebase error codes → Hebrew user-friendly messages
@@ -55,6 +58,11 @@ function getFirebaseAuth() {
   if (!getApps().length) initializeApp(FIREBASE_CONFIG);
   firebaseAuth = getAuth();
   googleProvider = new GoogleAuthProvider();
+  // Force persistent local session — critical for mobile browsers where the
+  // default may be in-memory/session. Prefer IndexedDB (better mobile support)
+  // and fall back to localStorage. Non-blocking.
+  setPersistence(firebaseAuth, indexedDBLocalPersistence)
+    .catch(() => setPersistence(firebaseAuth, browserLocalPersistence).catch(() => {}));
   return firebaseAuth;
 }
 

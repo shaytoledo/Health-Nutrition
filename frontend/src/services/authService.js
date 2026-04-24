@@ -18,13 +18,33 @@ import { FIREBASE_CONFIG, FIREBASE_ENABLED } from '../config/firebaseConfig';
 import { initializeApp, getApps } from 'firebase/app';
 import {
   getAuth,
-  signInWithRedirect,
+  signInWithPopup,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   updateProfile,
   signOut as fbSignOut,
   GoogleAuthProvider,
 } from 'firebase/auth';
+
+// Map Firebase error codes → Hebrew user-friendly messages
+function fbErr(e) {
+  const code = e?.code || '';
+  const map = {
+    'auth/email-already-in-use':     'כתובת אימייל זו כבר רשומה. נסה להתחבר.',
+    'auth/invalid-email':            'כתובת אימייל לא תקינה.',
+    'auth/weak-password':            'הסיסמה חלשה מדי (לפחות 6 תווים).',
+    'auth/user-not-found':           'לא נמצא חשבון עם אימייל זה.',
+    'auth/wrong-password':           'סיסמה שגויה.',
+    'auth/invalid-credential':       'אימייל או סיסמה שגויים.',
+    'auth/too-many-requests':        'יותר מדי ניסיונות. נסה שוב מאוחר יותר.',
+    'auth/network-request-failed':   'שגיאת רשת. בדוק את החיבור לאינטרנט.',
+    'auth/popup-closed-by-user':     'חלון ההתחברות נסגר. נסה שוב.',
+    'auth/popup-blocked':            'הדפדפן חסם את חלון ההתחברות. אפשר חלונות קופצים ונסה שוב.',
+    'auth/cancelled-popup-request':  'בקשת ההתחברות בוטלה.',
+    'auth/unauthorized-domain':      'הדומיין אינו מאושר ב-Firebase.',
+  };
+  return new Error(map[code] || e?.message || 'אירעה שגיאה. נסה שנית.');
+}
 
 // ── Firebase (initialized lazily on first use) ───────────────────────────────
 let firebaseAuth = null;
@@ -70,10 +90,12 @@ export async function registerWithEmail(name, email, password) {
   if (!password || password.length < 6) throw new Error('הסיסמה חייבת להכיל לפחות 6 תווים.');
 
   if (FIREBASE_ENABLED) {
-    const auth = getFirebaseAuth();
-    const cred = await createUserWithEmailAndPassword(auth, email, password);
-    await updateProfile(cred.user, { displayName: name.trim() });
-    return { uid: cred.user.uid, name: name.trim(), email, provider: 'email' };
+    try {
+      const auth = getFirebaseAuth();
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      await updateProfile(cred.user, { displayName: name.trim() });
+      return { uid: cred.user.uid, name: name.trim(), email, provider: 'email' };
+    } catch (e) { throw fbErr(e); }
   }
 
   // localStorage mock
@@ -94,14 +116,16 @@ export async function signInWithEmail(email, password) {
   if (!email || !password) throw new Error('אנא הכנס אימייל וסיסמה.');
 
   if (FIREBASE_ENABLED) {
-    const auth = getFirebaseAuth();
-    const cred = await signInWithEmailAndPassword(auth, email, password);
-    return {
-      uid:      cred.user.uid,
-      name:     cred.user.displayName || email,
-      email,
-      provider: 'email',
-    };
+    try {
+      const auth = getFirebaseAuth();
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      return {
+        uid:      cred.user.uid,
+        name:     cred.user.displayName || email,
+        email,
+        provider: 'email',
+      };
+    } catch (e) { throw fbErr(e); }
   }
 
   // localStorage mock
@@ -120,11 +144,20 @@ export async function signInWithEmail(email, password) {
  */
 export async function signInWithGoogle() {
   if (FIREBASE_ENABLED) {
-    const auth = getFirebaseAuth();
-    // Redirect-based flow: navigates to Google → back to app.
-    // onAuthStateChanged in AppContext picks up the signed-in user on return.
-    await signInWithRedirect(auth, googleProvider);
-    return null; // page navigates away; this line is never reached
+    try {
+      const auth = getFirebaseAuth();
+      // Popup flow: keeps the user on the same domain so session persists.
+      // Redirect flow breaks on Vercel because session is stored on
+      // firebaseapp.com and can't be read from vercel.app.
+      const cred = await signInWithPopup(auth, googleProvider);
+      const u = cred.user;
+      return {
+        uid:      u.uid,
+        name:     u.displayName || u.email,
+        email:    u.email,
+        provider: 'google',
+      };
+    } catch (e) { throw fbErr(e); }
   }
 
   // Demo mock — simulates a Google account

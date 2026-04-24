@@ -9,8 +9,9 @@
  */
 
 import { initializeApp, getApps } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
 import {
-  getFirestore, doc, getDoc, setDoc, updateDoc,
+  getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc,
   collection, addDoc, getDocs, query, orderBy, limit, serverTimestamp, increment,
 } from 'firebase/firestore';
 import { FIREBASE_CONFIG, FIREBASE_ENABLED } from '../config/firebaseConfig';
@@ -64,10 +65,28 @@ export async function recordUserLogin(session) {
 // ── Log a Gemini request ─────────────────────────────────────────────────────
 export async function logGeminiRequest(entry) {
   if (!FIREBASE_ENABLED) return;
+
+  // Belt-and-suspenders: if the caller didn't set uid/email, pull them from
+  // Firebase Auth directly. Prevents silent drops when setGeminiUser wasn't
+  // called in time and also makes the rules check (uid == auth.uid) pass.
+  let uid   = entry.uid   || null;
+  let email = entry.email || null;
+  if (!uid) {
+    try {
+      const u = getAuth().currentUser;
+      if (u) { uid = u.uid; email = email || u.email; }
+    } catch {}
+  }
+
+  if (!uid) {
+    console.warn('logGeminiRequest skipped: no authenticated user');
+    return;
+  }
+
   try {
     await addDoc(collection(db(), 'geminiLogs'), {
-      uid:             entry.uid || null,
-      email:           entry.email || null,
+      uid,
+      email,
       type:            entry.type || 'unknown',
       input:           entry.input || '',
       model:           entry.model || null,
@@ -89,8 +108,76 @@ export async function logGeminiRequest(entry) {
       ts:              serverTimestamp(),
     });
   } catch (e) {
-    console.warn('logGeminiRequest failed:', e?.message);
+    // Surface the real reason so the admin dashboard's diagnostic can see it.
+    console.error('logGeminiRequest failed:', e?.code || '', e?.message || e);
   }
+}
+
+/**
+ * Diagnostic probe used by the admin dashboard:
+ *   - Verifies Firestore is reachable
+ *   - Tries a dummy write + read + delete against a scratch doc
+ *   - Counts how many rows exist in geminiLogs / userDirectory
+ * Returns a JSON-serializable report.
+ */
+export async function runDiagnostics() {
+  const report = {
+    firebaseEnabled: FIREBASE_ENABLED,
+    auth: { uid: null, email: null, providerId: null },
+    firestore: { readUserDirectory: null, readGeminiLogs: null, writeTest: null },
+    counts: { userDirectory: null, geminiLogs: null },
+    errors: [],
+    ts: new Date().toISOString(),
+  };
+  if (!FIREBASE_ENABLED) return report;
+
+  try {
+    const u = getAuth().currentUser;
+    if (u) {
+      report.auth.uid        = u.uid;
+      report.auth.email      = u.email;
+      report.auth.providerId = u.providerData?.[0]?.providerId || null;
+    }
+  } catch (e) { report.errors.push('auth: ' + e.message); }
+
+  // Read userDirectory
+  try {
+    const s = await getDocs(collection(db(), 'userDirectory'));
+    report.firestore.readUserDirectory = 'ok';
+    report.counts.userDirectory = s.size;
+  } catch (e) {
+    report.firestore.readUserDirectory = e.code || e.message;
+    report.errors.push('readUserDirectory: ' + (e.code || e.message));
+  }
+
+  // Read geminiLogs
+  try {
+    const s = await getDocs(collection(db(), 'geminiLogs'));
+    report.firestore.readGeminiLogs = 'ok';
+    report.counts.geminiLogs = s.size;
+  } catch (e) {
+    report.firestore.readGeminiLogs = e.code || e.message;
+    report.errors.push('readGeminiLogs: ' + (e.code || e.message));
+  }
+
+  // Try a write to verify rules allow logging from this account
+  try {
+    const uid = report.auth.uid;
+    if (!uid) throw new Error('no authenticated user');
+    const ref = await addDoc(collection(db(), 'geminiLogs'), {
+      uid, email: report.auth.email, type: 'diagnostic',
+      input: 'probe', error: 'diagnostic probe (ignore)',
+      durationMs: 0, ts: serverTimestamp(),
+    });
+    report.firestore.writeTest = 'ok';
+    // Clean up so the probe row doesn't pollute the log
+    try { await deleteDoc(ref); } catch {}
+  } catch (e) {
+    report.firestore.writeTest = e.code || e.message;
+    report.errors.push('writeTest: ' + (e.code || e.message));
+  }
+
+  return report;
 }
 
 // ── Admin reads ──────────────────────────────────────────────────────────────

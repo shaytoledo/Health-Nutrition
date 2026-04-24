@@ -15,7 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
 import { useThemeColors } from '../context/ThemeContext';
-import { listUsers, listGeminiLogs, isAdmin } from '../services/adminService';
+import { listUsers, listGeminiLogs, isAdmin, runDiagnostics } from '../services/adminService';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function tsToDate(ts) {
@@ -71,6 +71,14 @@ export default function AdminDashboardScreen() {
   const [logs,       setLogs]       = useState([]);
   const [tab,        setTab]        = useState('overview');
   const [expanded,   setExpanded]   = useState({}); // logId → bool
+  const [diag,       setDiag]       = useState(null);
+  const [diagBusy,   setDiagBusy]   = useState(false);
+
+  const doDiag = useCallback(async () => {
+    setDiagBusy(true);
+    try { setDiag(await runDiagnostics()); }
+    finally { setDiagBusy(false); }
+  }, []);
 
   const load = useCallback(async () => {
     setError('');
@@ -184,6 +192,45 @@ export default function AdminDashboardScreen() {
         {/* ── OVERVIEW ─────────────────────────────────────────────────────── */}
         {tab === 'overview' && (
           <View>
+            {/* Diagnostic panel — tells you exactly why logs aren't showing up */}
+            <Text style={styles.section}>Diagnostics</Text>
+            <Text style={styles.sectionHint}>
+              Run this if numbers look wrong. It tests read/write access and tells you
+              whether the Firestore rules are correctly deployed.
+            </Text>
+            <View style={styles.card}>
+              <TouchableOpacity style={styles.diagBtn} onPress={doDiag} disabled={diagBusy}>
+                <Text style={styles.diagBtnTxt}>{diagBusy ? 'Running…' : '▶  Run diagnostics'}</Text>
+              </TouchableOpacity>
+
+              {diag && (
+                <View style={{ marginTop: 10 }}>
+                  <DiagRow styles={styles} label="Firebase enabled"      value={String(diag.firebaseEnabled)} ok={diag.firebaseEnabled} />
+                  <DiagRow styles={styles} label="Auth UID"              value={diag.auth.uid || '(none)'}    ok={!!diag.auth.uid} />
+                  <DiagRow styles={styles} label="Auth email"            value={diag.auth.email || '(none)'}  ok={!!diag.auth.email} />
+                  <DiagRow styles={styles} label="Read userDirectory"    value={diag.firestore.readUserDirectory || '—'} ok={diag.firestore.readUserDirectory === 'ok'} />
+                  <DiagRow styles={styles} label="Read geminiLogs"       value={diag.firestore.readGeminiLogs    || '—'} ok={diag.firestore.readGeminiLogs    === 'ok'} />
+                  <DiagRow styles={styles} label="Write geminiLogs"      value={diag.firestore.writeTest         || '—'} ok={diag.firestore.writeTest         === 'ok'} />
+                  <DiagRow styles={styles} label="userDirectory rows"    value={String(diag.counts.userDirectory ?? '—')} />
+                  <DiagRow styles={styles} label="geminiLogs rows"       value={String(diag.counts.geminiLogs    ?? '—')} />
+                  {diag.errors.length > 0 && (
+                    <View style={{ marginTop: 8 }}>
+                      {diag.errors.map((e, i) => (
+                        <Text key={i} style={styles.diagErr}>• {e}</Text>
+                      ))}
+                    </View>
+                  )}
+                  {diag.firestore.writeTest && diag.firestore.writeTest !== 'ok' && (
+                    <Text style={styles.diagHint}>
+                      ▶ The write test failed. Most likely the Firestore security rules were not
+                      published. Open Firebase Console → Firestore → Rules and paste the rules
+                      from firebase/firestore.rules, then click Publish.
+                    </Text>
+                  )}
+                </View>
+              )}
+            </View>
+
             <Text style={styles.section}>Users</Text>
             <View style={styles.kpiRow}>
               <Kpi styles={styles} label="Total users"          hint="All registered accounts"           value={usersTotal}    emoji="👥" />
@@ -376,6 +423,17 @@ function MetaRow({ styles, label, value, mono }) {
   );
 }
 
+function DiagRow({ styles, label, value, ok }) {
+  const mark = ok === true ? '✅' : ok === false ? '❌' : '•';
+  return (
+    <View style={styles.diagRow}>
+      <Text style={styles.diagMark}>{mark}</Text>
+      <Text style={styles.diagLabel}>{label}</Text>
+      <Text style={styles.diagValue} numberOfLines={1}>{value}</Text>
+    </View>
+  );
+}
+
 function LogField({ styles, k, v, mono }) {
   return (
     <View style={styles.logField}>
@@ -448,6 +506,15 @@ function makeStyles(c) {
 
     errBox: { backgroundColor: c.errorBg || '#ffeaea', padding: 12, borderRadius: 12, marginBottom: 12 },
     errTxt: { color: c.errorText || '#E53935' },
+
+    diagBtn:   { backgroundColor: c.mint, borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
+    diagBtnTxt:{ color: c.mintText, fontWeight: '800', fontSize: 13 },
+    diagRow:   { flexDirection: 'row', alignItems: 'center', paddingVertical: 4, gap: 8 },
+    diagMark:  { fontSize: 14, width: 20 },
+    diagLabel: { fontSize: 12, color: c.textMuted, width: 170 },
+    diagValue: { fontSize: 12, color: c.text, flex: 1, fontFamily: 'monospace' },
+    diagErr:   { fontSize: 11, color: c.errorText || '#E53935', marginTop: 2 },
+    diagHint:  { marginTop: 10, fontSize: 12, color: c.text, backgroundColor: c.errorBg || '#ffeaea', padding: 10, borderRadius: 8 },
 
     denied:      { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
     deniedEmoji: { fontSize: 64, marginBottom: 12 },

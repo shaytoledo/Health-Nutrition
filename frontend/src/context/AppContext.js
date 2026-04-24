@@ -77,6 +77,10 @@ export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, initialState);
   const unsubRef = useRef(null);
 
+  // Always keep geminiService in sync with the current user, so every
+  // analyzeFood/analyzeFoodByName call logs to the correct uid.
+  useEffect(() => { setGeminiUser(state.currentUser); }, [state.currentUser]);
+
   // ── Restore session on mount ───────────────────────────────────────────────
   useEffect(() => {
     dispatch({ type: A.SET_CLOUD, payload: isCloudEnabled() });

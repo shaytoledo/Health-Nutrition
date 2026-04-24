@@ -1,5 +1,9 @@
 /**
  * AuthScreen.js — Login / Register (Hebrew RTL)
+ *
+ * Google sign-in strategy:
+ *  - Firebase enabled → signInWithPopup via authService (Firebase UID, works with Firestore)
+ *  - Firebase disabled → @react-oauth/google (localStorage demo mode)
  */
 
 import React, { useState, useMemo } from 'react';
@@ -8,12 +12,14 @@ import {
   StyleSheet, ScrollView, ActivityIndicator,
   KeyboardAvoidingView, Platform,
 } from 'react-native';
-import { registerWithEmail, signInWithEmail } from '../services/authService';
+import { registerWithEmail, signInWithEmail, signInWithGoogle } from '../services/authService';
+import { FIREBASE_ENABLED } from '../config/firebaseConfig';
 import { useThemeColors } from '../context/ThemeContext';
 import ThemeToggle from '../components/ThemeToggle';
 
+// Load @react-oauth/google only in demo mode (no Firebase)
 let useGoogleLogin = null;
-if (Platform.OS === 'web') {
+if (Platform.OS === 'web' && !FIREBASE_ENABLED) {
   try { ({ useGoogleLogin } = require('@react-oauth/google')); } catch {}
 }
 
@@ -31,7 +37,8 @@ export default function AuthScreen({ onAuthSuccess }) {
 
   const isRegister = mode === 'register';
 
-  const googleLogin = useGoogleLogin
+  // Demo-mode Google login (@react-oauth/google)
+  const demoGoogleLogin = useGoogleLogin
     ? useGoogleLogin({
         onSuccess: async (tokenResponse) => {
           setLoading(true);
@@ -44,7 +51,7 @@ export default function AuthScreen({ onAuthSuccess }) {
             const session = { uid: 'google_' + info.sub, name: info.name || info.email, email: info.email, provider: 'google' };
             try { localStorage.setItem('auth_session', JSON.stringify(session)); } catch {}
             onAuthSuccess(session);
-          } catch (e) {
+          } catch {
             setError('שגיאה בהתחברות עם גוגל. נסה שנית.');
           } finally {
             setLoading(false);
@@ -69,9 +76,29 @@ export default function AuthScreen({ onAuthSuccess }) {
     }
   }
 
-  function handleGoogleClick() {
-    if (googleLogin) { setLoading(true); googleLogin(); }
-    else setError('Google Sign-In requires GOOGLE_CLIENT_ID in src/config/appConfig.js');
+  async function handleGoogleClick() {
+    setError('');
+    setLoading(true);
+
+    // Firebase mode: use signInWithPopup → real Firebase UID → Firestore works
+    if (FIREBASE_ENABLED) {
+      try {
+        const session = await signInWithGoogle();
+        onAuthSuccess(session);
+      } catch (e) {
+        setError('שגיאה בהתחברות עם גוגל. נסה שנית.');
+        setLoading(false);
+      }
+      return;
+    }
+
+    // Demo mode: use @react-oauth/google
+    if (demoGoogleLogin) {
+      demoGoogleLogin();
+    } else {
+      setError('Google Sign-In requires GOOGLE_CLIENT_ID in src/config/appConfig.js');
+      setLoading(false);
+    }
   }
 
   return (

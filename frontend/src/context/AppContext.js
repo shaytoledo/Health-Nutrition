@@ -5,8 +5,9 @@
  * which auto-switches between Firestore (cloud) and localStorage (local).
  */
 
-import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useEffect, useRef } from 'react';
 import { signOut as authSignOut, restoreSession } from '../services/authService';
+import { FIREBASE_CONFIG, FIREBASE_ENABLED } from '../config/firebaseConfig';
 import {
   getMeals,
   addMeal,
@@ -70,21 +71,56 @@ const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const unsubRef = useRef(null);
 
   // ── Restore session on mount ───────────────────────────────────────────────
   useEffect(() => {
-    (async () => {
-      dispatch({ type: A.SET_CLOUD, payload: isCloudEnabled() });
-      const session = restoreSession();
-      if (session) {
-        dispatch({ type: A.SET_USER, payload: session });
-        try {
-          const profile = await getProfile(session.uid);
-          if (profile) dispatch({ type: A.SET_PROFILE, payload: profile });
-        } catch {}
-      }
-      dispatch({ type: A.AUTH_READY });
-    })();
+    dispatch({ type: A.SET_CLOUD, payload: isCloudEnabled() });
+
+    if (FIREBASE_ENABLED) {
+      // Firebase mode: onAuthStateChanged fires immediately with current user
+      // (handles page refresh, tab reopen, cross-device)
+      (async () => {
+        const { initializeApp, getApps } = await import('firebase/app');
+        const { getAuth, onAuthStateChanged } = await import('firebase/auth');
+        if (!getApps().length) initializeApp(FIREBASE_CONFIG);
+        const auth = getAuth();
+
+        unsubRef.current = onAuthStateChanged(auth, async (firebaseUser) => {
+          if (firebaseUser) {
+            const session = {
+              uid:      firebaseUser.uid,
+              name:     firebaseUser.displayName || firebaseUser.email,
+              email:    firebaseUser.email,
+              provider: firebaseUser.providerData[0]?.providerId === 'google.com' ? 'google' : 'email',
+            };
+            try { localStorage.setItem('auth_session', JSON.stringify(session)); } catch {}
+            dispatch({ type: A.SET_USER, payload: session });
+            try {
+              const profile = await getProfile(firebaseUser.uid);
+              if (profile) dispatch({ type: A.SET_PROFILE, payload: profile });
+            } catch {}
+          } else {
+            try { localStorage.removeItem('auth_session'); } catch {}
+          }
+          dispatch({ type: A.AUTH_READY });
+        });
+      })();
+      return () => { if (unsubRef.current) unsubRef.current(); };
+    } else {
+      // localStorage demo mode
+      (async () => {
+        const session = restoreSession();
+        if (session) {
+          dispatch({ type: A.SET_USER, payload: session });
+          try {
+            const profile = await getProfile(session.uid);
+            if (profile) dispatch({ type: A.SET_PROFILE, payload: profile });
+          } catch {}
+        }
+        dispatch({ type: A.AUTH_READY });
+      })();
+    }
   }, []);
 
   // ── Daily data + history ───────────────────────────────────────────────────

@@ -1,45 +1,20 @@
-// firestore.rules — Firestore security rules
+// firestore.rules
 //
-// Each user can only read and write their own documents.
-// All other access (cross-user, unauthenticated) is denied by default.
+// Schema used by cloudDataService.js:
+//   users/{uid}/meals/{date}     → { items: Meal[] }
+//   users/{uid}/data/goals       → GoalsDoc
+//   users/{uid}/data/profile     → ProfileDoc
 //
-// Deploy with: firebase deploy --only firestore:rules
+// Each user can only read/write their own documents.
+// Deploy: Firebase Console → Firestore → Rules → paste & publish
 
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper: only the authenticated user matching the document UID may access it
-    function isOwner(uid) {
-      return request.auth != null && request.auth.uid == uid;
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
-
-    // User profile
-    match /users/{uid}/profile/{doc} {
-      allow read, write: if isOwner(uid);
-    }
-
-    // Daily goals
-    match /users/{uid}/goals/{date} {
-      allow read, write: if isOwner(uid);
-    }
-
-    // Daily log aggregate
-    match /users/{uid}/dailyLogs/{date} {
-      allow read, write: if isOwner(uid);
-
-      // Meals sub-collection
-      match /meals/{mealId} {
-        allow read, write: if isOwner(uid);
-      }
-    }
-
-    // Health logs
-    match /users/{uid}/healthLogs/{date} {
-      allow read, write: if isOwner(uid);
-    }
-
-    // Deny all other paths
+    // Deny everything else
     match /{document=**} {
       allow read, write: if false;
     }

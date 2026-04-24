@@ -1,20 +1,12 @@
 /**
  * config/firebaseConfig.js
  *
- * Replace the placeholder values with your Firebase project's web config.
- * Found at: Firebase Console → Project Settings → Your apps → Web app → Config
+ * Firebase project: health-and-nutrition-ad98c
  *
- * Once you fill in real values, Firestore cloud sync activates automatically
- * on the next app load — no other changes required.
+ * Cloud sync activates automatically when these values are filled in.
+ * FIREBASE_ENABLED is auto-detected — do not set it manually.
  *
- * Steps to get the config:
- *   1. https://console.firebase.google.com → New Project
- *   2. Add a Web app (+)
- *   3. Build → Firestore Database → Create (start in production mode)
- *   4. Authentication → Sign-in methods → enable Email/Password + Google
- *   5. Copy the firebaseConfig object here
- *
- * Firestore security rules (paste in Firebase Console → Firestore → Rules):
+ * Firestore security rules (Firebase Console → Firestore → Rules):
  *
  *   rules_version = '2';
  *   service cloud.firestore {
@@ -24,21 +16,25 @@
  *       }
  *     }
  *   }
+ *
+ * Required Firebase Console setup:
+ *   - Authentication → Google → Enable
+ *   - Authentication → Email/Password → Enable
+ *   - Authentication → Settings → Authorized domains → add ai-health-nutrition.vercel.app
+ *   - Firestore Database → Create (production mode)
  */
 
 export const FIREBASE_CONFIG = {
-  apiKey:            'YOUR_API_KEY',
-  authDomain:        'YOUR_PROJECT_ID.firebaseapp.com',
-  projectId:         'YOUR_PROJECT_ID',
-  storageBucket:     'YOUR_PROJECT_ID.appspot.com',
-  messagingSenderId: 'YOUR_SENDER_ID',
-  appId:             'YOUR_APP_ID',
+  apiKey:            'AIzaSyCyGAcC7MCTWYJ7q8Ue0a6uTpeka6rupZ0',
+  authDomain:        'health-and-nutrition-ad98c.firebaseapp.com',
+  projectId:         'health-and-nutrition-ad98c',
+  storageBucket:     'health-and-nutrition-ad98c.firebasestorage.app',
+  messagingSenderId: '692185198341',
+  appId:             '1:692185198341:web:1f9c690144413fde95d16c',
+  measurementId:     'G-ND9YP0S32V',
 };
 
-/**
- * Auto-detected: true when real Firebase credentials are present.
- * Do NOT set this manually — just fill in the config object above.
- */
+/** Auto-detected: true when real Firebase credentials are present. */
 export const FIREBASE_ENABLED =
   FIREBASE_CONFIG.apiKey    !== 'YOUR_API_KEY' &&
   FIREBASE_CONFIG.projectId !== 'YOUR_PROJECT_ID';

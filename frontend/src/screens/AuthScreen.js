@@ -86,7 +86,8 @@ export default function AuthScreen({ onAuthSuccess }) {
         const session = await signInWithGoogle();
         onAuthSuccess(session);
       } catch (e) {
-        setError('שגיאה בהתחברות עם גוגל. נסה שנית.');
+        // Show real Firebase error code to help diagnose
+        setError('Google error: ' + (e?.code || e?.message || String(e)));
         setLoading(false);
       }
       return;

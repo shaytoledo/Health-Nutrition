@@ -8,6 +8,8 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect, useRef } from 'react';
 import { signOut as authSignOut, restoreSession } from '../services/authService';
 import { FIREBASE_CONFIG, FIREBASE_ENABLED } from '../config/firebaseConfig';
+import { initializeApp, getApps } from 'firebase/app';
+import { getAuth, onAuthStateChanged, getRedirectResult } from 'firebase/auth';
 import {
   getMeals,
   addMeal,
@@ -98,8 +100,6 @@ export function AppProvider({ children }) {
       // (handles page refresh, tab reopen, cross-device)
       (async () => {
         try {
-          const { initializeApp, getApps } = await import('firebase/app');
-          const { getAuth, onAuthStateChanged, getRedirectResult } = await import('firebase/auth');
           if (!getApps().length) initializeApp(FIREBASE_CONFIG);
           const auth = getAuth();
 

@@ -15,18 +15,25 @@
 
 import { Platform } from 'react-native';
 import { FIREBASE_CONFIG, FIREBASE_ENABLED } from '../config/firebaseConfig';
+import { initializeApp, getApps } from 'firebase/app';
+import {
+  getAuth,
+  signInWithRedirect,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
+  signOut as fbSignOut,
+  GoogleAuthProvider,
+} from 'firebase/auth';
 
-// ── Firebase (lazy-loaded only when enabled) ─────────────────────────────────
+// ── Firebase (initialized lazily on first use) ───────────────────────────────
 let firebaseAuth = null;
 let googleProvider = null;
 
-async function getFirebaseAuth() {
+function getFirebaseAuth() {
   if (firebaseAuth) return firebaseAuth;
-  const { initializeApp, getApps } = await import('firebase/app');
-  const { getAuth } = await import('firebase/auth');
   if (!getApps().length) initializeApp(FIREBASE_CONFIG);
   firebaseAuth = getAuth();
-  const { GoogleAuthProvider } = await import('firebase/auth');
   googleProvider = new GoogleAuthProvider();
   return firebaseAuth;
 }
@@ -63,8 +70,7 @@ export async function registerWithEmail(name, email, password) {
   if (!password || password.length < 6) throw new Error('הסיסמה חייבת להכיל לפחות 6 תווים.');
 
   if (FIREBASE_ENABLED) {
-    const auth = await getFirebaseAuth();
-    const { createUserWithEmailAndPassword, updateProfile } = await import('firebase/auth');
+    const auth = getFirebaseAuth();
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     await updateProfile(cred.user, { displayName: name.trim() });
     return { uid: cred.user.uid, name: name.trim(), email, provider: 'email' };
@@ -88,8 +94,7 @@ export async function signInWithEmail(email, password) {
   if (!email || !password) throw new Error('אנא הכנס אימייל וסיסמה.');
 
   if (FIREBASE_ENABLED) {
-    const auth = await getFirebaseAuth();
-    const { signInWithEmailAndPassword } = await import('firebase/auth');
+    const auth = getFirebaseAuth();
     const cred = await signInWithEmailAndPassword(auth, email, password);
     return {
       uid:      cred.user.uid,
@@ -115,8 +120,7 @@ export async function signInWithEmail(email, password) {
  */
 export async function signInWithGoogle() {
   if (FIREBASE_ENABLED) {
-    const auth = await getFirebaseAuth();
-    const { signInWithRedirect } = await import('firebase/auth');
+    const auth = getFirebaseAuth();
     // Redirect-based flow: navigates to Google → back to app.
     // onAuthStateChanged in AppContext picks up the signed-in user on return.
     await signInWithRedirect(auth, googleProvider);
@@ -142,8 +146,7 @@ export async function signInWithGoogle() {
  */
 export async function signOut() {
   if (FIREBASE_ENABLED) {
-    const auth = await getFirebaseAuth();
-    const { signOut: fbSignOut } = await import('firebase/auth');
+    const auth = getFirebaseAuth();
     await fbSignOut(auth);
   }
   lsDel('auth_session');
